@@ -5,6 +5,7 @@
 
 import argparse
 import random
+import logging
 
 from nltk.stem import WordNetLemmatizer
 
@@ -17,6 +18,9 @@ from sklearn.metrics import accuracy_score, f1_score
 from collections import Counter
 
 random.seed(10)
+
+logging.basicConfig(filename='results_base.log', level=logging.INFO,
+                    format='%(asctime)s - %(message)s')
 
 
 def check_valid_gamma(value):
@@ -111,6 +115,13 @@ def create_arg_parser():
 
     args = parser.parse_args()
     return args
+
+
+def log_and_print(message, printed=True):
+    """Logs a message and prints it to the console."""
+    logging.info(message)
+    if printed:
+        print(message)
 
 
 def read_corpus(corpus_file):
@@ -217,10 +228,7 @@ if __name__ == "__main__":
     # Obtains the train features and labels.
     X_train, Y_train = read_corpus(args.train_file)
     # Select either test or dev set for evaluation and generate features and labels.
-    if args.test_file:
-        X_test, Y_test = read_corpus(args.test_file)
-    else:
-        X_test, Y_test = read_corpus(args.dev_file)
+    X_test, Y_test = read_corpus(args.dev_file)
 
     # Uncomment this to see the label distribution for the training dataset.
     # print(Counter(Y_train))
@@ -233,15 +241,33 @@ if __name__ == "__main__":
 
     classifier = Pipeline([('vec', vec), ('cls', algorithm)])
 
-    # TODO: comment this
     classifier.fit(X_train, Y_train)
 
-    # TODO: comment this
     Y_pred = classifier.predict(X_test)
 
-    # TODO: comment this
     acc = accuracy_score(Y_test, Y_pred)
     f1 = f1_score(Y_test, Y_pred, average="macro")
 
-    print(f"Final accuracy: {acc}")
-    print(f"Macro F1-score: {f1}")
+    log_and_print(f"Final accuracy on the Development set: {round(acc, 2)}")
+    log_and_print(f"Macro F1-score on the Development set: {round(f1, 2)}")
+
+    if args.test_file:
+        X_test, Y_test = read_corpus(args.test_file)
+        vec = select_vectorizer(args)
+        # Initializes the algorithm
+        algorithm = select_classifier(args)
+
+        classifier = Pipeline([('vec', vec), ('cls', algorithm)])
+
+        classifier.fit(X_train, Y_train)
+
+        Y_pred = classifier.predict(X_test)
+
+        acc = accuracy_score(Y_test, Y_pred)
+        f1 = f1_score(Y_test, Y_pred, average="macro")
+
+        log_and_print(f"Final accuracy on the Test set: {round(acc, 2)}")
+        log_and_print(f"Macro F1-score on the Test set: {round(f1, 2)}")
+    
+    all_args = " \\\n".join([f" --{key}={value}" for key, value in vars(args).items() if value])
+    log_and_print(f"Used settings:\n{all_args}\n", False)
