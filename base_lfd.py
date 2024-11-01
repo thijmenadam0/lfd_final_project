@@ -10,12 +10,12 @@ import logging
 from nltk.stem import WordNetLemmatizer
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import ComplementNB
 from sklearn.svm import SVC, LinearSVC
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.metrics import accuracy_score, f1_score
-from collections import Counter
+from nltk.tokenize import TweetTokenizer
 
 random.seed(10)
 
@@ -92,25 +92,25 @@ def create_arg_parser():
                                        help="Use Linear kernel Support Vector Machine as classifier")
     svml_parser.add_argument("-c", "--C", default=1.0, type=float,
                              help="Set the regularization parameter C of Linear SVM")
+    svml_parser.add_argument("-cw", "--class_weight", choices=['balanced', None], default=None)
     svml_parser.add_argument("-p", "--penalty", choices=["l1", "l2"], default="l2",
                              help="Set the penalty parameter for Linear SVM")
     svml_parser.add_argument("-l", "--loss", choices=["hinge", "squared_hinge"], default="squared_hinge",
                              help="Set the loss parameter for Linear SVM, using hinge and penalty l1 is not supported "
                                   "by model")
     
-    # Subparser for Decision Trees
-    tree_parser = subparser.add_parser("dt",
-                                       help="Use Decision Tree algorithm as classifier")
-    tree_parser.add_argument("-s", "--splitter", choices=["best", "random"], default="best",
-                             help="Set the strategy used to choose the split of each node")
-
-    tree_parser.add_argument("-c", "--criterion", choices=["gini", "entropy", "log_loss"],
+    # Subparser for Random Forest
+    forest_parser = subparser.add_parser("rf",
+                                       help="Use Random Forest algorithm as classifier")
+    forest_parser.add_argument("-ne", "--number_estimators", default=100, type=int,
+                               help="Set the number of estimators of the forest")
+    forest_parser.add_argument("-c", "--criterion", choices=["gini", "entropy", "log_loss"],
                                default="gini", help="Assign the fuction to measure the split quality")
-    tree_parser.add_argument("-md", "--max_depth", default=None, type=int,
-                               help="Set the maximum depth of the tree")
-    tree_parser.add_argument("-mss", "--min_samples_split", default=2, type=int,
+    forest_parser.add_argument("-md", "--max_depth", default=None, type=int,
+                               help="Set the maximum depth of the forest")
+    forest_parser.add_argument("-mss", "--min_samples_split", default=2, type=int,
                                help="Set the minimum number of samples required to split an internal node")
-    tree_parser.add_argument("-msl", "--min_samples_leaf", default=1, type=int,
+    forest_parser.add_argument("-msl", "--min_samples_leaf", default=1, type=int,
                                help="Set the minimum number of samples per leaf node")
 
     args = parser.parse_args()
@@ -134,6 +134,7 @@ def read_corpus(corpus_file):
             documents.append(tokens[:-1])
             # 2-class problem: OFF vs NOT
             labels.append(tokens[-1])
+
     return documents, labels
 
 
@@ -188,7 +189,7 @@ def select_classifier(arguments):
     """
     Select the classifier and initialize it with the given arguments.
     """
-    algorithm = MultinomialNB(alpha=arguments.alpha)
+    algorithm = ComplementNB(alpha=arguments.alpha)
 
 
     if arguments.algorithm == "svm":
@@ -198,10 +199,11 @@ def select_classifier(arguments):
     
     if arguments.algorithm == "svml":
         algorithm = LinearSVC(C=arguments.C, penalty=arguments.penalty,
-                              loss=arguments.loss, random_state=10)
+                              loss=arguments.loss, class_weight=arguments.class_weight, random_state=10)
 
     if arguments.algorithm == "dt":
-        algorithm = DecisionTreeClassifier(criterion=arguments.criterion, max_depth=arguments.max_depth,
+        algorithm = RandomForestClassifier(criterion=arguments.criterion, max_depth=arguments.max_depth,
+                                           n_estimators=arguments.number_estimators,
                                            min_samples_split=arguments.min_samples_split,
                                            min_samples_leaf=arguments.min_samples_leaf, random_state=10)
 
@@ -213,13 +215,16 @@ def identity(inp):
     return a lemmatized version of the input.
     '''
 
+    tokenizer = TweetTokenizer()
+    tokenized = [" ".join(tokenizer.tokenize(word)) for word in inp]
+
     if args.lemmas:
         lemmatizer = WordNetLemmatizer()
-        lemma_list = [lemmatizer.lemmatize(word) for word in inp]
+        lemma_list = [lemmatizer.lemmatize(word) for word in tokenized]
 
         return lemma_list
     
-    return inp
+    return tokenized
 
 
 if __name__ == "__main__":
@@ -248,8 +253,8 @@ if __name__ == "__main__":
     acc = accuracy_score(Y_test, Y_pred)
     f1 = f1_score(Y_test, Y_pred, average="macro")
 
-    log_and_print(f"Final accuracy on the Development set: {round(acc, 2)}")
-    log_and_print(f"Macro F1-score on the Development set: {round(f1, 2)}")
+    log_and_print(f"Final accuracy on the Development set: {round(acc, 3)}")
+    log_and_print(f"Macro F1-score on the Development set: {round(f1, 3)}")
 
     if args.test_file:
         X_test, Y_test = read_corpus(args.test_file)
@@ -266,8 +271,8 @@ if __name__ == "__main__":
         acc = accuracy_score(Y_test, Y_pred)
         f1 = f1_score(Y_test, Y_pred, average="macro")
 
-        log_and_print(f"Final accuracy on the Test set: {round(acc, 2)}")
-        log_and_print(f"Macro F1-score on the Test set: {round(f1, 2)}")
+        log_and_print(f"Final accuracy on the Test set: {round(acc, 3)}")
+        log_and_print(f"Macro F1-score on the Test set: {round(f1, 3)}")
     
     all_args = " \\\n".join([f" --{key}={value}" for key, value in vars(args).items() if value])
     log_and_print(f"Used settings:\n{all_args}\n", False)

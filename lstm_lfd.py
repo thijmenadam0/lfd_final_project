@@ -32,6 +32,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Embedding, LSTM, Dropout
 from keras.initializers import Constant
 
+from nltk.tokenize import TweetTokenizer
+
 # Setup logging configuration
 logging.basicConfig(filename='results.log', level=logging.INFO,
                     format='%(asctime)s - %(message)s')
@@ -101,7 +103,12 @@ def read_corpus(corpus_file):
             documents.append(" ".join(tokens[:-1]).strip())
             # 2-class problem: OFF vs NOT
             labels.append(tokens[-1])
-    return documents, labels
+    
+    # Tokenizes the data with TweetTokenizer
+    tokenizer = TweetTokenizer()
+    tokenized_docs = [" ".join(tokenizer.tokenize(sent)) for sent in documents]
+
+    return tokenized_docs, labels
 
 
 def read_embeddings(embeddings_file):
@@ -152,7 +159,6 @@ def create_model(Y_train, emb_matrix, args):
     # Take embedding dim and size from emb_matrix
     embedding_dim = len(emb_matrix[0])
     num_tokens = len(emb_matrix)
-    num_labels = len(set(Y_train))
     # Now build the model
     model = Sequential()
     model.add(Embedding(num_tokens, embedding_dim, embeddings_initializer=Constant(emb_matrix), trainable=False))
