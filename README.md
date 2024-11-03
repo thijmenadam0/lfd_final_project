@@ -4,6 +4,8 @@ In this GitHub the code for the final project for Learning From Data can be foun
 
 This GitHub does not include the GloVe embeddings that are used in this experiment. The GloVe embeddings can be found on https://nlp.stanford.edu/projects/glove/. The embeddings used are the Twitter embeddings from this site. I have only used the 25b and 50b Tweet embeddings because they seemed to work better on the LSTM with the parameters I used.
 
+This GitHub also includes stopword lists, which can be found on https://github.com/igorbrigadir/stopwords/tree/21fb2ef and are used for the classic models.
+
 ## Creating a Virtual Environment and Installing the Requirements
 ```
 sudo apt install python3.10
